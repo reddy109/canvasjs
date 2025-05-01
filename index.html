@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Paint App</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #166088;
+            margin-bottom: 10px;
+        }
+        
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin: 15px 0;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background-color: #166088;
+            transform: translateY(-2px);
+        }
+        
+        #status {
+            margin: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 27px;
+            color: #166088;
+        }
+        
+        .hit {
+            color: #4caf50;
+        }
+        
+        .miss {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Paint App</h1>
+        
+        <div id="status">Click and drag to draw circles</div>
+        
+        <canvas id="canvas" width="800" height="500"></canvas>
+        
+        <div>
+            <button id="reset">Reset Canvas</button>
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const resetBtn = document.getElementById('reset');
+        const statusDiv = document.getElementById('status');
+        
+        // Store all circles
+        let circles = [];
+        let isDrawing = false;
+        let startX, startY;
+        let clickCount = 0;
+        let clickTimeout;
+        
+        // Generate random color
+        function getRandomColor() {
+            const hue = Math.floor(Math.random() * 360);
+            return `hsl(${hue}, 80%, 65%)`;
+        }
+        
+        // Draw all circles
+        function drawCircles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            circles.forEach(circle => {
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+                ctx.fillStyle = circle.color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.stroke();
+            });
+        }
+        
+        // Check if point is inside any circle
+        function isPointInCircle(x, y) {
+            for (let i = circles.length - 1; i >= 0; i--) {
+                const circle = circles[i];
+                const distance = Math.sqrt((x - circle.x) ** 2 + (y - circle.y) ** 2);
+                if (distance <= circle.radius) {
+                    return circle;
+                }
+            }
+            return null;
+        }
+        
+        // Mouse event handlers
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Check for double click
+            clickCount++;
+            
+            if (clickCount === 1) {
+                clickTimeout = setTimeout(() => {
+                    // Single click - check hit/miss (Module 2 Requirement)
+                    const circle = isPointInCircle(x, y);
+                    statusDiv.textContent = circle ? 'Hit' : 'Miss';
+                    statusDiv.className = circle ? 'hit' : 'miss';
+                    
+                    clickCount = 0;
+                }, 300);
+            } else if (clickCount === 2) {
+                clearTimeout(clickTimeout);
+                // Double click - delete circle if found (Module 2 Requirement)
+                const circle = isPointInCircle(x, y);
+                if (circle) {
+                    circles = circles.filter(c => c !== circle);
+                    drawCircles();
+                    statusDiv.textContent = 'Circle deleted';
+                    statusDiv.className = 'hit';
+                } else {
+                    statusDiv.textContent = 'Miss - no circle to delete';
+                    statusDiv.className = 'miss';
+                }
+                clickCount = 0;
+            }
+            
+            // Start drawing new circle (Module 1 Requirement)
+            isDrawing = true;
+            startX = x;
+            startY = y;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate radius based on distance from start point (Module 1 Requirement)
+            const radius = Math.sqrt((x - startX) ** 2 + (y - startY) ** 2);
+            
+            // Draw temporary circle while dragging
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawCircles();
+            ctx.beginPath();
+            ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(79, 195, 247, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(22, 96, 136, 0.5)';
+            ctx.stroke();
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate final radius (Module 1 Requirement)
+            const radius = Math.sqrt((x - startX) ** 2 + (y - startY) ** 2);
+            
+            // Only add circle if radius is at least 5 pixels
+            if (radius >= 5) {
+                circles.push({
+                    x: startX,
+                    y: startY,
+                    radius: radius,
+                    color: getRandomColor() // Module 1 Requirement (auto fill with different color)
+                });
+                drawCircles();
+            }
+            
+            isDrawing = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            if (isDrawing) {
+                isDrawing = false;
+                drawCircles(); // Redraw without the temporary circle
+            }
+        });
+        
+        // Reset button (Module 1 Requirement)
+        resetBtn.addEventListener('click', () => {
+            circles = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            statusDiv.textContent = 'Canvas cleared';
+            statusDiv.className = '';
+        });
+    </script>
+</body>
+</html>
